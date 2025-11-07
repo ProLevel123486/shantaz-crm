@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { toast } from 'sonner'
 
 export default function NewLeadPage() {
   const router = useRouter()
@@ -35,13 +36,15 @@ export default function NewLeadPage() {
       })
 
       if (response.ok) {
-        router.push("/leads")
+        toast.success('Lead created successfully!')
+        router.push("/dashboard/leads")
       } else {
-        alert("Failed to create lead")
+        const error = await response.json()
+        toast.error(error.message || 'Failed to create lead')
       }
     } catch (error) {
       console.error("Error creating lead:", error)
-      alert("An error occurred")
+      toast.error('An error occurred. Please try again.')
     } finally {
       setLoading(false)
     }

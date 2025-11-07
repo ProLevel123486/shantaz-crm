@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Plus, Search, Filter, Eye, Edit, Trash2, Phone, Mail } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
+import { toast } from 'sonner'
 
 interface Lead {
   id: string
@@ -31,16 +32,39 @@ export default function LeadsPage() {
 
   const fetchLeads = async () => {
     try {
+      setLoading(true)
       const params = new URLSearchParams()
       if (statusFilter !== "ALL") params.append("status", statusFilter)
       
       const response = await fetch(`/api/leads?${params}`)
+      if (!response.ok) throw new Error('Failed to fetch leads')
       const data = await response.json()
       setLeads(data)
     } catch (error) {
       console.error("Error fetching leads:", error)
+      toast.error('Failed to load leads. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete lead "${name}"?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/leads/${id}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) throw new Error('Failed to delete lead')
+      
+      toast.success(`Lead "${name}" deleted successfully`)
+      fetchLeads() // Refresh the list
+    } catch (error) {
+      console.error('Error deleting lead:', error)
+      toast.error('Failed to delete lead. Please try again.')
     }
   }
 
@@ -109,9 +133,23 @@ export default function LeadsPage() {
       {/* Leads Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center">Loading...</div>
+          <div className="p-8">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          </div>
         ) : filteredLeads.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No leads found</div>
+          <div className="p-8 text-center text-gray-500">
+            <p>No leads found</p>
+            <Link 
+              href="/dashboard/leads/new" 
+              className="mt-4 inline-block text-indigo-600 hover:text-indigo-700"
+            >
+              Create your first lead
+            </Link>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -161,17 +199,26 @@ export default function LeadsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex gap-2">
                         <Link
-                          href={`/leads/${lead.id}`}
+                          href={`/dashboard/leads/${lead.id}`}
                           className="text-indigo-600 hover:text-indigo-900"
+                          title="View"
                         >
                           <Eye className="h-5 w-5" />
                         </Link>
                         <Link
-                          href={`/leads/${lead.id}/edit`}
+                          href={`/dashboard/leads/${lead.id}/edit`}
                           className="text-blue-600 hover:text-blue-900"
+                          title="Edit"
                         >
                           <Edit className="h-5 w-5" />
                         </Link>
+                        <button
+                          onClick={() => handleDelete(lead.id, lead.name)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
