@@ -35,7 +35,7 @@ export async function GET(
         },
         comments: {
           include: {
-            createdBy: {
+            author: {
               select: {
                 id: true,
                 name: true,
