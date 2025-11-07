@@ -14,6 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const lead = await prisma.lead.findFirst({
       where: {
         id: id,
@@ -41,7 +43,7 @@ export async function GET(
         },
         comments: {
           include: {
-            user: {
+            author: {
               select: {
                 id: true,
                 name: true,
@@ -81,6 +83,8 @@ export async function PATCH(
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { id } = await params
 
     const body = await request.json()
 
@@ -133,6 +137,8 @@ export async function DELETE(
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { id } = await params
 
     const lead = await prisma.lead.deleteMany({
       where: {

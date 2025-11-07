@@ -14,6 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const serviceRequest = await prisma.serviceRequest.findFirst({
       where: {
         id: id,
@@ -43,7 +45,7 @@ export async function GET(
         },
         comments: {
           include: {
-            createdBy: {
+            author: {
               select: {
                 id: true,
                 name: true,
@@ -83,6 +85,8 @@ export async function PATCH(
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { id } = await params
 
     const body = await request.json()
     const { status: newStatus, ...updateData } = body
@@ -124,13 +128,11 @@ export async function PATCH(
     if (newStatus && newStatus !== current.status) {
       await prisma.activity.create({
         data: {
-          type: 'STATUS_CHANGE',
-          title: `Status changed: ${current.status} → ${newStatus}`,
+          type: 'NOTE',
+          subject: `Status changed: ${current.status} → ${newStatus}`,
           description: `Service request status updated from ${current.status} to ${newStatus}`,
-          entityType: 'SERVICE_REQUEST',
-          entityId: serviceRequest.id,
-          organizationId: session.user.organizationId,
-          createdById: session.user.id,
+          userId: session.user.id,
+          serviceRequestId: id,
         },
       })
     }
@@ -156,6 +158,8 @@ export async function DELETE(
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { id } = await params
 
     const serviceRequest = await prisma.serviceRequest.deleteMany({
       where: {

@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
 
     const where: any = {
-      organizationId: session.user.organizationId,
     }
 
     if (status) {
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { ticketNumber: { contains: search, mode: 'insensitive' } },
-        { title: { contains: search, mode: 'insensitive' } },
+        { subject: { contains: search, mode: 'insensitive' } },
       ]
     }
 
@@ -102,7 +101,6 @@ export async function POST(request: NextRequest) {
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
     const count = await prisma.serviceRequest.count({
       where: {
-        organizationId: session.user.organizationId,
         ticketNumber: {
           startsWith: `SR-${dateStr}`,
         },
@@ -114,8 +112,6 @@ export async function POST(request: NextRequest) {
       data: {
         ...body,
         ticketNumber,
-        organizationId: session.user.organizationId,
-        createdById: session.user.id,
       },
       include: {
         account: true,
@@ -133,13 +129,11 @@ export async function POST(request: NextRequest) {
     // Create activity log
     await prisma.activity.create({
       data: {
-        type: 'SERVICE_REQUEST_CREATED',
-        title: `Service Request Created: ${ticketNumber}`,
+        type: 'NOTE',
+        subject: `Service Request Created: ${ticketNumber}`,
         description: `Service request "${serviceRequest.title}" was created`,
-        entityType: 'SERVICE_REQUEST',
-        entityId: serviceRequest.id,
-        organizationId: session.user.organizationId,
-        createdById: session.user.id,
+        userId: session.user.id,
+        serviceRequestId: serviceRequest.id,
       },
     })
 
