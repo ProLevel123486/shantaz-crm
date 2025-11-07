@@ -5,7 +5,7 @@ import prisma from '@/lib/db'
 // GET /api/contacts/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -14,9 +14,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const contact = await prisma.contact.findFirst({
       where: {
-        id: params.id,
+        id,
         organizationId: session.user.organizationId,
       },
       include: {
@@ -65,7 +67,7 @@ export async function GET(
 // PATCH /api/contacts/[id]
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -74,11 +76,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
 
     const contact = await prisma.contact.updateMany({
       where: {
-        id: params.id,
+        id,
         organizationId: session.user.organizationId,
       },
       data: {
@@ -92,7 +95,7 @@ export async function PATCH(
     }
 
     const updatedContact = await prisma.contact.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         account: true,
       },
@@ -111,7 +114,7 @@ export async function PATCH(
 // DELETE /api/contacts/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -120,9 +123,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const contact = await prisma.contact.deleteMany({
       where: {
-        id: params.id,
+        id,
         organizationId: session.user.organizationId,
       },
     })

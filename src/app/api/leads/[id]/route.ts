@@ -5,7 +5,7 @@ import prisma from '@/lib/db'
 // GET /api/leads/[id] - Get a single lead
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -16,7 +16,7 @@ export async function GET(
 
     const lead = await prisma.lead.findFirst({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
       include: {
@@ -73,7 +73,7 @@ export async function GET(
 // PATCH /api/leads/[id] - Update a lead
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -86,7 +86,7 @@ export async function PATCH(
 
     const lead = await prisma.lead.updateMany({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
       data: {
@@ -100,7 +100,7 @@ export async function PATCH(
     }
 
     const updatedLead = await prisma.lead.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         assignedTo: {
           select: {
@@ -125,7 +125,7 @@ export async function PATCH(
 // DELETE /api/leads/[id] - Delete a lead
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -136,7 +136,7 @@ export async function DELETE(
 
     const lead = await prisma.lead.deleteMany({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
     })

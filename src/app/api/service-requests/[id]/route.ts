@@ -5,7 +5,7 @@ import prisma from '@/lib/db'
 // GET /api/service-requests/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -16,7 +16,7 @@ export async function GET(
 
     const serviceRequest = await prisma.serviceRequest.findFirst({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
       include: {
@@ -75,7 +75,7 @@ export async function GET(
 // PATCH /api/service-requests/[id]
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -90,7 +90,7 @@ export async function PATCH(
     // Get current service request
     const current = await prisma.serviceRequest.findFirst({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
     })
@@ -101,7 +101,7 @@ export async function PATCH(
 
     // Update service request
     const serviceRequest = await prisma.serviceRequest.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         ...updateData,
         ...(newStatus && { status: newStatus }),
@@ -148,7 +148,7 @@ export async function PATCH(
 // DELETE /api/service-requests/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -159,7 +159,7 @@ export async function DELETE(
 
     const serviceRequest = await prisma.serviceRequest.deleteMany({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
     })
