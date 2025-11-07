@@ -1,0 +1,1428 @@
+// Shantaz Service & Sales Platform - Database Schema
+// Multi-Organization CRM, Service Management, Inventory, Contracts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE SYSTEM MODELS
+// ============================================
+
+// Organizations - 3 separate entities
+model Organization {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique // SHANTAZ_SERVICE, SHANTAZ_L1, SHANTA_G_L1
+  type        OrgType
+  gstNumber   String?
+  address     String?
+  city        String?
+  state       String?
+  country     String   @default("India")
+  zipCode     String?
+  phone       String?
+  email       String?
+  logo        String?
+  currency    String   @default("INR")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users              User[]
+  leads              Lead[]
+  contacts           Contact[]
+  accounts           Account[]
+  deals              Deal[]
+  serviceRequests    ServiceRequest[]
+  installations      Installation[]
+  contracts          Contract[]
+  items              Item[]
+  quotes             Quote[]
+  salesOrders        SalesOrder[]
+  invoices           Invoice[]
+  purchaseOrders     PurchaseOrder[]
+  bills              Bill[]
+  inventoryAdjustments InventoryAdjustment[]
+  serialNumbers      SerialNumber[]
+  customFields       CustomField[]
+
+  @@map("organizations")
+}
+
+// Users - Multi-organization support
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String
+  phone         String?
+  avatar        String?
+  position      String?
+  department    String?
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Multi-organization support
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // Relations
+  assignedLeads        Lead[]          @relation("AssignedLeads")
+  createdLeads         Lead[]          @relation("CreatedLeads")
+  assignedDeals        Deal[]          @relation("AssignedDeals")
+  createdDeals         Deal[]          @relation("CreatedDeals")
+  assignedServiceRequests ServiceRequest[] @relation("AssignedServiceRequests")
+  createdServiceRequests  ServiceRequest[] @relation("CreatedServiceRequests")
+  installations        Installation[]
+  activities           Activity[]
+  tasks                Task[]
+  meetings             Meeting[]
+  approvals            Approval[]
+  comments             Comment[]
+  notifications        Notification[]
+  createdContracts     Contract[]      @relation("CreatedContracts")
+  signedContracts      ContractSignature[]
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================
+// CRM MODELS
+// ============================================
+
+// Leads Management
+model Lead {
+  id            String     @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  company       String?
+  title         String?
+  source        LeadSource
+  status        LeadStatus @default(NEW)
+  rating        LeadRating?
+  industry      String?
+  website       String?
+  address       String?
+  city          String?
+  state         String?
+  country       String?
+  zipCode       String?
+  description   String?
+  notes         String?
+  tags          String[]
+  customFields  Json?
+  lostReason    String?
+  junkReason    String?
+  convertedAt   DateTime?
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  createdById    String
+  createdBy      User         @relation("CreatedLeads", fields: [createdById], references: [id])
+
+  // Converted relations
+  contactId String? @unique
+  contact   Contact?
+  accountId String? @unique
+  account   Account?
+  dealId    String? @unique
+  deal      Deal?
+
+  activities Activity[]
+  tasks      Task[]
+  comments   Comment[]
+
+  @@index([organizationId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([source])
+  @@map("leads")
+}
+
+// Contacts Management
+model Contact {
+  id           String        @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  mobile       String?
+  title        String?
+  department   String?
+  dateOfBirth  DateTime?
+  avatar       String?
+  address      String?
+  city         String?
+  state        String?
+  country      String?
+  zipCode      String?
+  description  String?
+  notes        String?
+  tags         String[]
+  customFields Json?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  leadId         String?      @unique
+  lead           Lead?        @relation(fields: [leadId], references: [id])
+
+  deals              Deal[]
+  serviceRequests    ServiceRequest[]
+  installations      Installation[]
+  activities         Activity[]
+  tasks              Task[]
+  meetings           Meeting[]
+  comments           Comment[]
+  quotes             Quote[]
+  salesOrders        SalesOrder[]
+  invoices           Invoice[]
+
+  @@index([organizationId])
+  @@index([accountId])
+  @@index([email])
+  @@map("contacts")
+}
+
+// Accounts/Companies Management
+model Account {
+  id            String      @id @default(cuid())
+  name          String
+  website       String?
+  industry      String?
+  type          AccountType?
+  size          CompanySize?
+  revenue       Float?
+  employees     Int?
+  gstNumber     String?
+  panNumber     String?
+  logo          String?
+  address       String?
+  city          String?
+  state         String?
+  country       String?
+  zipCode       String?
+  phone         String?
+  email         String?
+  description   String?
+  notes         String?
+  tags          String[]
+  customFields  Json?
+  creditLimit   Float?
+  paymentTerms  String?
+  priceList     String?
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String?      @unique
+  lead           Lead?        @relation(fields: [leadId], references: [id])
+
+  contacts           Contact[]
+  deals              Deal[]
+  serviceRequests    ServiceRequest[]
+  installations      Installation[]
+  activities         Activity[]
+  tasks              Task[]
+  meetings           Meeting[]
+  comments           Comment[]
+  contracts          Contract[]
+  quotes             Quote[]
+  salesOrders        SalesOrder[]
+  invoices           Invoice[]
+  purchaseOrders     PurchaseOrder[]
+  bills              Bill[]
+
+  @@index([organizationId])
+  @@index([name])
+  @@map("accounts")
+}
+
+// Deals/Pipeline Management
+model Deal {
+  id                String     @id @default(cuid())
+  name              String
+  amount            Float
+  expectedCloseDate DateTime?
+  closedDate        DateTime?
+  stage             DealStage  @default(QUALIFICATION)
+  status            DealStatus @default(OPEN)
+  probability       Int        @default(0)
+  pipeline          String     @default("Sales Pipeline")
+  description       String?
+  notes             String?
+  tags              String[]
+  customFields      Json?
+  lostReason        String?
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedDeals", fields: [assignedToId], references: [id])
+  createdById    String
+  createdBy      User         @relation("CreatedDeals", fields: [createdById], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  leadId         String?      @unique
+  lead           Lead?        @relation(fields: [leadId], references: [id])
+
+  activities     Activity[]
+  tasks          Task[]
+  meetings       Meeting[]
+  comments       Comment[]
+  contracts      Contract[]
+  quotes         Quote[]
+  salesOrders    SalesOrder[]
+  invoices       Invoice[]
+
+  @@index([organizationId])
+  @@index([assignedToId])
+  @@index([stage])
+  @@index([status])
+  @@map("deals")
+}
+
+// ============================================
+// SERVICE MANAGEMENT MODELS
+// ============================================
+
+// Service Requests
+model ServiceRequest {
+  id                  String              @id @default(cuid())
+  ticketNumber        String              @unique
+  title               String
+  description         String
+  source              ServiceSource
+  status              ServiceStatus       @default(NEW)
+  priority            ServicePriority     @default(MEDIUM)
+  category            String?
+  subcategory         String?
+  serialNumbers       String[] // Array of serial numbers
+  problemImages       String[] // URLs to images
+  problemVideos       String[] // URLs to videos
+  resolutionType      ResolutionType?
+  resolutionNotes     String?
+  serviceFee          Float?
+  sparePartsUsed      String?
+  resolvedViaVideoCall Boolean           @default(false)
+  appointmentDate     DateTime?
+  completedAt         DateTime?
+  feedbackSubmitted   Boolean            @default(false)
+  feedbackFormUrl     String?
+  feedbackPdfUrl      String?
+  beforeServiceImages String[]
+  afterServiceImages  String[]
+  customFields        Json?
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedServiceRequests", fields: [assignedToId], references: [id])
+  createdById    String
+  createdBy      User         @relation("CreatedServiceRequests", fields: [createdById], references: [id])
+
+  activities     Activity[]
+  tasks          Task[]
+  meetings       Meeting[]
+  comments       Comment[]
+  notifications  Notification[]
+
+  @@index([organizationId])
+  @@index([ticketNumber])
+  @@index([status])
+  @@index([priority])
+  @@map("service_requests")
+}
+
+// ============================================
+// INSTALLATION MANAGEMENT MODELS
+// ============================================
+
+// Installation/Dispatch Process
+model Installation {
+  id                    String            @id @default(cuid())
+  workOrderNumber       String            @unique
+  status                InstallationStatus @default(PLANNING)
+  productSerialNumbers  String[]
+  materialChecklist     Json?
+  dispatchDate          DateTime?
+  dispatchImages        String[]
+  deliveredAt           DateTime?
+  installationDate      DateTime?
+  installationStarted   DateTime?
+  installationCompleted DateTime?
+  
+  // Pre-installation checklist
+  powerPlugInstalled    Boolean           @default(false)
+  powerPlugImage        String?
+  meterBoxInstalled     Boolean           @default(false)
+  meterBoxImage         String?
+  electricalItemsOk     Boolean           @default(false)
+  electricalImage       String?
+  installationSpaceOk   Boolean           @default(false)
+  spaceImage            String?
+  checklistConfirmedBy  String?
+  checklistConfirmedAt  DateTime?
+
+  // Installation teams
+  engineerTeam          String[]
+  dispatchTeam          String[]
+  installationTeam      String[]
+
+  // Installation stages
+  wiringCompleted       Boolean           @default(false)
+  mechanicalCompleted   Boolean           @default(false)
+  subAssemblyCompleted  Boolean           @default(false)
+  finalAssemblyCompleted Boolean          @default(false)
+  machineSetupCompleted Boolean           @default(false)
+  packagingCompleted    Boolean           @default(false)
+
+  // Feedback
+  engineerFeedbackUrl   String?
+  engineerFeedbackPdf   String?
+  customerFeedbackUrl   String?
+  customerFeedbackPdf   String?
+
+  notes                 String?
+  customFields          Json?
+  isActive              Boolean           @default(true)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  salesOrderId   String?      @unique
+  salesOrder     SalesOrder?  @relation(fields: [salesOrderId], references: [id])
+  assignedToId   String?
+  assignedTo     User?        @relation(fields: [assignedToId], references: [id])
+
+  activities     Activity[]
+  tasks          Task[]
+  meetings       Meeting[]
+  comments       Comment[]
+  notifications  Notification[]
+
+  @@index([organizationId])
+  @@index([workOrderNumber])
+  @@index([status])
+  @@map("installations")
+}
+
+// ============================================
+// CONTRACT MANAGEMENT MODELS
+// ============================================
+
+// Contracts
+model Contract {
+  id                String         @id @default(cuid())
+  contractNumber    String         @unique
+  name              String
+  type              ContractType
+  status            ContractStatus @default(DRAFT)
+  effectiveDate     DateTime?
+  endDate           DateTime?
+  autoRenew         Boolean        @default(false)
+  renewalNotice     Int? // Days before end date
+  value             Float?
+  terms             String?
+  notes             String?
+  templateId        String?
+  documentUrl       String?
+  signedDocumentUrl String?
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  dealId         String?
+  deal           Deal?        @relation(fields: [dealId], references: [id])
+  createdById    String
+  createdBy      User         @relation("CreatedContracts", fields: [createdById], references: [id])
+
+  signatures     ContractSignature[]
+  approvals      Approval[]
+  activities     Activity[]
+  comments       Comment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("contracts")
+}
+
+// Contract Signatures
+model ContractSignature {
+  id          String   @id @default(cuid())
+  signedAt    DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  signatureImage String?
+  signatureType  String   @default("E-SIGNATURE")
+
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  signerId    String
+  signer      User     @relation(fields: [signerId], references: [id])
+
+  @@index([contractId])
+  @@map("contract_signatures")
+}
+
+// Approval Workflows
+model Approval {
+  id          String         @id @default(cuid())
+  status      ApprovalStatus @default(PENDING)
+  comments    String?
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
+  approverId  String
+  approver    User      @relation(fields: [approverId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([contractId])
+  @@index([approverId])
+  @@map("approvals")
+}
+
+// ============================================
+// INVENTORY & BOOKS MODELS
+// ============================================
+
+// Items/Products
+model Item {
+  id              String      @id @default(cuid())
+  itemCode        String
+  name            String
+  type            ItemType    @default(NORMAL)
+  category        String?
+  subcategory     String?
+  description     String?
+  unit            String      @default("Unit")
+  hsnCode         String?
+  trackSerialNumber Boolean   @default(false)
+  reorderLevel    Int?
+  stockOnHand     Int         @default(0)
+  
+  // Pricing
+  sellingPrice    Float
+  costPrice       Float?
+  taxRate         Float       @default(0)
+  
+  // Composite item details
+  compositeItems  Json? // Array of {itemId, quantity}
+  
+  images          String[]
+  customFields    Json?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  serialNumbers        SerialNumber[]
+  quoteItems           QuoteItem[]
+  salesOrderItems      SalesOrderItem[]
+  invoiceItems         InvoiceItem[]
+  purchaseOrderItems   PurchaseOrderItem[]
+  billItems            BillItem[]
+  inventoryAdjustments InventoryAdjustment[]
+
+  @@unique([organizationId, itemCode])
+  @@index([organizationId])
+  @@map("items")
+}
+
+// Serial Number Tracking
+model SerialNumber {
+  id            String   @id @default(cuid())
+  serialNumber  String
+  status        SerialStatus @default(AVAILABLE)
+  purchaseDate  DateTime?
+  saleDate      DateTime?
+  warrantyStart DateTime?
+  warrantyEnd   DateTime?
+  amcStatus     Boolean  @default(false)
+  amcEndDate    DateTime?
+  location      String?
+  notes         String?
+  customFields  Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  itemId         String
+  item           Item         @relation(fields: [itemId], references: [id])
+  contactId      String? // Customer who bought it
+  invoiceId      String? // Invoice it was sold on
+
+  @@unique([organizationId, serialNumber])
+  @@index([organizationId])
+  @@index([itemId])
+  @@index([status])
+  @@map("serial_numbers")
+}
+
+// Quotes/Estimates
+model Quote {
+  id             String      @id @default(cuid())
+  quoteNumber    String      @unique
+  date           DateTime    @default(now())
+  validUntil     DateTime?
+  status         QuoteStatus @default(DRAFT)
+  subtotal       Float
+  taxAmount      Float       @default(0)
+  discount       Float       @default(0)
+  total          Float
+  terms          String?
+  notes          String?
+  customFields   Json?
+  convertedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  dealId         String?
+  deal           Deal?        @relation(fields: [dealId], references: [id])
+
+  items          QuoteItem[]
+  salesOrders    SalesOrder[]
+  activities     Activity[]
+  comments       Comment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  rate        Float
+  taxRate     Float   @default(0)
+  discount    Float   @default(0)
+  amount      Float
+  description String?
+
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  itemId  String
+  item    Item   @relation(fields: [itemId], references: [id])
+
+  @@index([quoteId])
+  @@map("quote_items")
+}
+
+// Sales Orders
+model SalesOrder {
+  id             String          @id @default(cuid())
+  orderNumber    String          @unique
+  date           DateTime        @default(now())
+  status         SalesOrderStatus @default(DRAFT)
+  deliveryDate   DateTime?
+  subtotal       Float
+  taxAmount      Float           @default(0)
+  discount       Float           @default(0)
+  total          Float
+  terms          String?
+  notes          String?
+  customFields   Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  dealId         String?
+  deal           Deal?        @relation(fields: [dealId], references: [id])
+  quoteId        String?
+  quote          Quote?       @relation(fields: [quoteId], references: [id])
+
+  items          SalesOrderItem[]
+  invoices       Invoice[]
+  installation   Installation?
+  activities     Activity[]
+  comments       Comment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("sales_orders")
+}
+
+model SalesOrderItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  rate        Float
+  taxRate     Float   @default(0)
+  discount    Float   @default(0)
+  amount      Float
+  description String?
+
+  salesOrderId String
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  itemId       String
+  item         Item       @relation(fields: [itemId], references: [id])
+
+  @@index([salesOrderId])
+  @@map("sales_order_items")
+}
+
+// Invoices
+model Invoice {
+  id             String        @id @default(cuid())
+  invoiceNumber  String        @unique
+  date           DateTime      @default(now())
+  dueDate        DateTime?
+  status         InvoiceStatus @default(DRAFT)
+  subtotal       Float
+  taxAmount      Float         @default(0)
+  discount       Float         @default(0)
+  total          Float
+  paidAmount     Float         @default(0)
+  balanceAmount  Float
+  terms          String?
+  notes          String?
+  customFields   Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  accountId      String?
+  account        Account?     @relation(fields: [accountId], references: [id])
+  dealId         String?
+  deal           Deal?        @relation(fields: [dealId], references: [id])
+  salesOrderId   String?
+  salesOrder     SalesOrder?  @relation(fields: [salesOrderId], references: [id])
+
+  items          InvoiceItem[]
+  payments       Payment[]
+  activities     Activity[]
+  comments       Comment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  rate        Float
+  taxRate     Float   @default(0)
+  discount    Float   @default(0)
+  amount      Float
+  description String?
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      Item    @relation(fields: [itemId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+// Payments
+model Payment {
+  id            String        @id @default(cuid())
+  paymentNumber String        @unique
+  date          DateTime      @default(now())
+  amount        Float
+  mode          PaymentMode
+  reference     String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+// Purchase Orders
+model PurchaseOrder {
+  id             String              @id @default(cuid())
+  poNumber       String              @unique
+  date           DateTime            @default(now())
+  status         PurchaseOrderStatus @default(DRAFT)
+  deliveryDate   DateTime?
+  subtotal       Float
+  taxAmount      Float               @default(0)
+  discount       Float               @default(0)
+  total          Float
+  terms          String?
+  notes          String?
+  customFields   Json?
+  receivedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  accountId      String? // Vendor
+  account        Account?     @relation(fields: [accountId], references: [id])
+
+  items          PurchaseOrderItem[]
+  bills          Bill[]
+  activities     Activity[]
+  comments       Comment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  rate        Float
+  taxRate     Float   @default(0)
+  discount    Float   @default(0)
+  amount      Float
+  description String?
+
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  itemId          String
+  item            Item          @relation(fields: [itemId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_items")
+}
+
+// Bills
+model Bill {
+  id             String     @id @default(cuid())
+  billNumber     String     @unique
+  date           DateTime   @default(now())
+  dueDate        DateTime?
+  status         BillStatus @default(DRAFT)
+  subtotal       Float
+  taxAmount      Float      @default(0)
+  discount       Float      @default(0)
+  total          Float
+  paidAmount     Float      @default(0)
+  balanceAmount  Float
+  terms          String?
+  notes          String?
+  customFields   Json?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  accountId      String? // Vendor
+  account        Account?     @relation(fields: [accountId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  items          BillItem[]
+  activities     Activity[]
+  comments       Comment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("bills")
+}
+
+model BillItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  rate        Float
+  taxRate     Float   @default(0)
+  discount    Float   @default(0)
+  amount      Float
+  description String?
+
+  billId String
+  bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  @@index([billId])
+  @@map("bill_items")
+}
+
+// Inventory Adjustments
+model InventoryAdjustment {
+  id          String           @id @default(cuid())
+  type        AdjustmentType
+  quantity    Int
+  reason      String?
+  reference   String?
+  notes       String?
+  createdAt   DateTime         @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  itemId         String
+  item           Item         @relation(fields: [itemId], references: [id])
+
+  @@index([organizationId])
+  @@index([itemId])
+  @@map("inventory_adjustments")
+}
+
+// ============================================
+// ACTIVITY & COLLABORATION MODELS
+// ============================================
+
+// Activities (Calls, Emails, etc.)
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType
+  subject     String
+  description String?
+  startTime   DateTime?
+  endTime     DateTime?
+  location    String?
+  outcome     String?
+  customFields Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  leadId    String?
+  lead      Lead?  @relation(fields: [leadId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id])
+  dealId    String?
+  deal      Deal?  @relation(fields: [dealId], references: [id])
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  installationId   String?
+  installation     Installation?   @relation(fields: [installationId], references: [id])
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+  quoteId    String?
+  quote      Quote? @relation(fields: [quoteId], references: [id])
+  salesOrderId String?
+  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  invoiceId    String?
+  invoice      Invoice? @relation(fields: [invoiceId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  billId       String?
+  bill         Bill? @relation(fields: [billId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@map("activities")
+}
+
+// Tasks
+model Task {
+  id          String      @id @default(cuid())
+  subject     String
+  description String?
+  dueDate     DateTime?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(PENDING)
+  completedAt DateTime?
+  customFields Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  assignedToId String
+  assignedTo   User   @relation(fields: [assignedToId], references: [id])
+  leadId       String?
+  lead         Lead?  @relation(fields: [leadId], references: [id])
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id])
+  accountId    String?
+  account      Account? @relation(fields: [accountId], references: [id])
+  dealId       String?
+  deal         Deal?  @relation(fields: [dealId], references: [id])
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  installationId   String?
+  installation     Installation?   @relation(fields: [installationId], references: [id])
+
+  @@index([assignedToId])
+  @@index([status])
+  @@map("tasks")
+}
+
+// Meetings
+model Meeting {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  meetingLink String?
+  status      MeetingStatus @default(SCHEDULED)
+  customFields Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  organizerId String
+  organizer   User   @relation(fields: [organizerId], references: [id])
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  accountId   String?
+  account     Account? @relation(fields: [accountId], references: [id])
+  dealId      String?
+  deal        Deal?  @relation(fields: [dealId], references: [id])
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  installationId   String?
+  installation     Installation?   @relation(fields: [installationId], references: [id])
+
+  @@index([organizerId])
+  @@index([startTime])
+  @@map("meetings")
+}
+
+// Comments
+model Comment {
+  id          String   @id @default(cuid())
+  content     String
+  isInternal  Boolean  @default(false)
+  attachments String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+  leadId   String?
+  lead     Lead?  @relation(fields: [leadId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id])
+  dealId    String?
+  deal      Deal?  @relation(fields: [dealId], references: [id])
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  installationId   String?
+  installation     Installation?   @relation(fields: [installationId], references: [id])
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+  quoteId    String?
+  quote      Quote? @relation(fields: [quoteId], references: [id])
+  salesOrderId String?
+  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  invoiceId    String?
+  invoice      Invoice? @relation(fields: [invoiceId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  billId       String?
+  bill         Bill? @relation(fields: [billId], references: [id])
+
+  @@index([authorId])
+  @@map("comments")
+}
+
+// Notifications
+model Notification {
+  id          String   @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  installationId   String?
+  installation     Installation?   @relation(fields: [installationId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ============================================
+// CUSTOMIZATION MODELS
+// ============================================
+
+// Custom Fields
+model CustomField {
+  id          String          @id @default(cuid())
+  module      String // leads, contacts, deals, etc.
+  fieldName   String
+  fieldLabel  String
+  fieldType   CustomFieldType
+  options     String[] // For dropdown, multi-select
+  isRequired  Boolean         @default(false)
+  defaultValue String?
+  displayOrder Int            @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, module, fieldName])
+  @@index([organizationId])
+  @@map("custom_fields")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum OrgType {
+  SERVICE_SALES
+  BOOKS_L1
+  BOOKS_L2
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SALES
+  SERVICE_ENGINEER
+  INSTALLATION_TEAM
+  DISPATCH_TEAM
+  PURCHASE_MANAGER
+  FINANCE
+  USER
+}
+
+enum LeadSource {
+  WEBSITE
+  INDIAMART
+  EXHIBITION
+  REFERENCE
+  WHATSAPP
+  CALL
+  SOCIAL_MEDIA
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  NOT_CONTACTED
+  CONTACTED
+  QUALIFY
+  ENGAGEMENT
+  PROPOSAL_SENT
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+  JUNK
+}
+
+enum LeadRating {
+  HOT
+  WARM
+  COLD
+}
+
+enum AccountType {
+  CUSTOMER
+  VENDOR
+  PARTNER
+  COMPETITOR
+}
+
+enum CompanySize {
+  STARTUP
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum DealStage {
+  QUALIFICATION
+  NEEDS_ANALYSIS
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  ABANDONED
+}
+
+enum ServiceSource {
+  WHATSAPP
+  CALL
+  EMAIL
+  WEBSITE
+  WALK_IN
+}
+
+enum ServiceStatus {
+  NEW
+  ANALYSIS
+  VIDEO_CALL_RESOLUTION
+  NEED_VISIT
+  SCHEDULED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum ServicePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ResolutionType {
+  VIDEO_CALL
+  ON_SITE_VISIT
+  REMOTE
+}
+
+enum InstallationStatus {
+  PLANNING
+  MATERIAL_CHECK
+  MATERIAL_READY
+  DISPATCHED
+  DELIVERED
+  PRE_CHECKLIST_PENDING
+  PRE_CHECKLIST_DONE
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ContractType {
+  DEFINITE
+  INDEFINITE
+  SERVICE
+  MAINTENANCE
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  APPROVED
+  DECLINED
+  RECALLED
+  FORWARDED
+  ACTIVE
+  EXPIRED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ItemType {
+  NORMAL
+  COMPOSITE
+}
+
+enum SerialStatus {
+  AVAILABLE
+  SOLD
+  WARRANTY
+  AMC
+  SCRAPPED
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum PaymentMode {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  UPI
+  CARD
+  OTHER
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ISSUED
+  RECEIVED
+  CANCELLED
+}
+
+enum BillStatus {
+  DRAFT
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum AdjustmentType {
+  ADDITION
+  DEDUCTION
+  TRANSFER
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  TASK
+  NOTE
+  WHATSAPP
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  LEAD_ASSIGNED
+  DEAL_WON
+  SERVICE_REQUEST
+  INSTALLATION_SCHEDULED
+  CONTRACT_SIGNED
+  PAYMENT_RECEIVED
+  TASK_ASSIGNED
+  APPROVAL_REQUIRED
+  SYSTEM
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  EMAIL
+  PHONE
+  DATE
+  DATETIME
+  DROPDOWN
+  MULTI_SELECT
+  CHECKBOX
+  TEXTAREA
+  URL
+}
